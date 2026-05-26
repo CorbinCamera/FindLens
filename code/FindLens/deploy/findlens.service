@@ -1,0 +1,17 @@
+[Unit]
+Description=FindLens Nuxt Application
+After=network.target
+
+[Service]
+Type=simple
+User=findlens
+WorkingDirectory=/opt/findlens/code/FindLens
+ExecStart=/usr/bin/node /opt/findlens/code/FindLens/.output/server/index.mjs
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=HOST=0.0.0.0
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
