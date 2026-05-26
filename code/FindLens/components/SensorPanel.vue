@@ -1,6 +1,5 @@
 <template>
-  <div class="card">
-    <h3>传感器参数</h3>
+  <div class="sensor-panel">
     <div class="field-row">
       <label>输入方式</label>
       <select v-model="store.inputMode">
@@ -9,7 +8,7 @@
       </select>
     </div>
 
-    <div v-if="store.inputMode === 'pixel'" class="preset-section">
+    <div v-if="store.inputMode === 'pixel'" class="field-row">
       <label>预设</label>
       <select v-model="presetIndex" @change="store.selectPreset(presetIndex)">
         <option v-for="(p, i) in presets" :key="i" :value="i">{{ p.name }}</option>
@@ -17,30 +16,39 @@
       </select>
     </div>
 
-    <div v-if="store.inputMode === 'pixel'" class="field-row">
-      <label>水平分辨率 (px)</label>
-      <input type="number" v-model.number="store.resolutionX" min="1" />
-    </div>
-    <div v-if="store.inputMode === 'pixel'" class="field-row">
-      <label>垂直分辨率 (px)</label>
-      <input type="number" v-model.number="store.resolutionY" min="1" />
-    </div>
-    <div v-if="store.inputMode === 'pixel'" class="field-row">
-      <label>像元尺寸 (μm)</label>
-      <input type="number" v-model.number="store.pixelSize" min="0.1" step="0.01" />
-    </div>
-
-    <div v-if="store.inputMode === 'manual'" class="field-row">
-      <label>传感器宽度 (mm)</label>
-      <input type="number" v-model.number="store.sensorWidth" min="0.1" step="0.01" />
-    </div>
-    <div v-if="store.inputMode === 'manual'" class="field-row">
-      <label>传感器高度 (mm)</label>
-      <input type="number" v-model.number="store.sensorHeight" min="0.1" step="0.01" />
+    <div v-if="store.inputMode === 'pixel'" class="field-group">
+      <div class="compact-row">
+        <label>分辨率</label>
+        <span class="inline-inputs">
+          <input type="number" v-model.number="store.resolutionX" min="1" placeholder="宽" />
+          ×
+          <input type="number" v-model.number="store.resolutionY" min="1" placeholder="高" />
+          px
+        </span>
+      </div>
+      <div class="compact-row">
+        <label>像元尺寸</label>
+        <span class="inline-inputs">
+          <input type="number" v-model.number="store.pixelSize" min="0.1" step="0.01" />
+          μm
+        </span>
+      </div>
     </div>
 
-    <div class="computed-sensor">
-      <span>计算传感器: {{ store.effectiveSensor.width.toFixed(2) }} × {{ store.effectiveSensor.height.toFixed(2) }} mm</span>
+    <div v-if="store.inputMode === 'manual'" class="field-group">
+      <div class="compact-row">
+        <label>传感器</label>
+        <span class="inline-inputs">
+          <input type="number" v-model.number="store.sensorWidth" min="0.1" step="0.01" />
+          ×
+          <input type="number" v-model.number="store.sensorHeight" min="0.1" step="0.01" />
+          mm
+        </span>
+      </div>
+    </div>
+
+    <div class="computed-info">
+      {{ store.effectiveSensor.width.toFixed(2) }} × {{ store.effectiveSensor.height.toFixed(2) }} mm
     </div>
   </div>
 </template>
@@ -55,58 +63,62 @@ const presetIndex = ref(store.selectedPresetIndex)
 </script>
 
 <style scoped>
-.card {
-  background: #fff;
-  border-radius: 8px;
-  padding: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-.card h3 {
-  margin: 0 0 8px;
-  font-size: 14px;
-  color: #333;
+.sensor-panel {
+  font-size: 13px;
 }
 .field-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin: 6px 0;
-  font-size: 13px;
+  margin: 4px 0;
 }
 .field-row label {
-  flex: 0 0 auto;
-  margin-right: 8px;
-  color: #555;
+  color: #666;
 }
-.field-row input, .field-row select {
-  width: 120px;
-  padding: 4px 6px;
-  border: 1px solid #ccc;
+.field-row select {
+  width: 140px;
+  padding: 3px 5px;
+  border: 1px solid #d0d0d0;
   border-radius: 4px;
-  font-size: 13px;
+  font-size: 12px;
 }
-.preset-section {
-  margin: 6px 0;
-  font-size: 13px;
+.field-group {
+  margin-top: 4px;
 }
-.preset-section label {
-  display: block;
-  margin-bottom: 4px;
-  color: #555;
+.compact-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 3px 0;
 }
-.preset-section select {
-  width: 100%;
-  padding: 4px 6px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 13px;
+.compact-row label {
+  color: #666;
+  font-size: 12px;
+  flex-shrink: 0;
+  margin-right: 6px;
 }
-.computed-sensor {
-  margin-top: 8px;
-  padding: 6px 8px;
-  background: #e8f4f8;
+.inline-inputs {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  color: #888;
+}
+.inline-inputs input[type="number"] {
+  width: 55px;
+  padding: 2px 4px;
+  border: 1px solid #d0d0d0;
+  border-radius: 3px;
+  font-size: 12px;
+  text-align: center;
+}
+.computed-info {
+  margin-top: 6px;
+  padding: 4px 8px;
+  background: #e8f0f8;
   border-radius: 4px;
   font-size: 12px;
   color: #0277bd;
+  text-align: center;
 }
 </style>

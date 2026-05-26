@@ -1,55 +1,64 @@
 <template>
-  <div class="card">
-    <h3>计算结果</h3>
-    <div class="result-section">
+  <div class="result-panel">
+    <div class="result-group">
       <h4>视场角</h4>
-      <div class="result-row">
-        <span>水平视场角</span>
-        <span>{{ store.fov.horizontalFOV.toFixed(2) }}°</span>
-      </div>
-      <div class="result-row">
-        <span>垂直视场角</span>
-        <span>{{ store.fov.verticalFOV.toFixed(2) }}°</span>
-      </div>
-      <div class="result-row">
-        <span>对角视场角</span>
-        <span>{{ store.fov.diagonalFOV.toFixed(2) }}°</span>
-      </div>
-    </div>
-
-    <div class="result-section">
-      <h4>{{ store.distance }} m 处覆盖范围</h4>
-      <div class="result-row">
-        <span>水平覆盖</span>
-        <span>{{ store.coverage.horizontalRange.toFixed(3) }} m</span>
-      </div>
-      <div class="result-row">
-        <span>垂直覆盖</span>
-        <span>{{ store.coverage.verticalRange.toFixed(3) }} m</span>
+      <div class="result-grid">
+        <div class="result-item">
+          <span class="label">水平</span>
+          <span class="value">{{ store.fov.horizontalFOV.toFixed(1) }}°</span>
+        </div>
+        <div class="result-item">
+          <span class="label">垂直</span>
+          <span class="value">{{ store.fov.verticalFOV.toFixed(1) }}°</span>
+        </div>
+        <div class="result-item">
+          <span class="label">对角</span>
+          <span class="value">{{ store.fov.diagonalFOV.toFixed(1) }}°</span>
+        </div>
       </div>
     </div>
 
-    <div class="result-section">
-      <h4>人物画面占比</h4>
-      <div class="result-row">
-        <span>宽度占比</span>
-        <span>{{ (store.proportion.widthProportion * 100).toFixed(1) }}%</span>
-      </div>
-      <div class="result-row">
-        <span>高度占比</span>
-        <span>{{ (store.proportion.heightProportion * 100).toFixed(1) }}%</span>
+    <div class="result-group">
+      <h4>{{ store.distance }}m 处覆盖</h4>
+      <div class="result-grid">
+        <div class="result-item">
+          <span class="label">水平</span>
+          <span class="value">{{ store.coverage.horizontalRange.toFixed(3) }} m</span>
+        </div>
+        <div class="result-item">
+          <span class="label">垂直</span>
+          <span class="value">{{ store.coverage.verticalRange.toFixed(3) }} m</span>
+        </div>
       </div>
     </div>
 
-    <div class="result-section" v-if="store.pixelCoverage.widthPixels !== null">
-      <h4>像素覆盖</h4>
-      <div class="result-row">
-        <span>宽度像素</span>
-        <span>{{ store.pixelCoverage.widthPixels }} px</span>
+    <div class="result-group">
+      <h4>占比</h4>
+      <div class="result-grid">
+        <div class="result-item">
+          <span class="label">宽度</span>
+          <span class="value">{{ (store.proportion.widthProportion * 100).toFixed(1) }}%</span>
+        </div>
+        <div class="result-item">
+          <span class="label">高度</span>
+          <span :class="['value', store.proportion.heightProportion > 1 ? 'warn' : '']">
+            {{ (store.proportion.heightProportion * 100).toFixed(1) }}%
+          </span>
+        </div>
       </div>
-      <div class="result-row">
-        <span>高度像素</span>
-        <span>{{ store.pixelCoverage.heightPixels }} px</span>
+    </div>
+
+    <div v-if="store.pixelCoverage.widthPixels !== null" class="result-group">
+      <h4>像素</h4>
+      <div class="result-grid">
+        <div class="result-item">
+          <span class="label">宽</span>
+          <span class="value">{{ store.pixelCoverage.widthPixels }} px</span>
+        </div>
+        <div class="result-item">
+          <span class="label">高</span>
+          <span class="value">{{ store.pixelCoverage.heightPixels }} px</span>
+        </div>
       </div>
     </div>
   </div>
@@ -61,33 +70,44 @@ const store = useLensStore()
 </script>
 
 <style scoped>
-.card {
-  background: #fff;
-  border-radius: 8px;
-  padding: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+.result-panel {
+  font-size: 13px;
 }
-.card h3 {
-  margin: 0 0 8px;
-  font-size: 14px;
-  color: #333;
-}
-.result-section {
-  margin: 8px 0;
-  padding: 6px 0;
+.result-group {
+  margin: 6px 0;
+  padding: 4px 0;
   border-top: 1px solid #eee;
 }
-.result-section h4 {
+.result-group:first-child {
+  border-top: none;
+  margin-top: 0;
+}
+.result-group h4 {
   margin: 0 0 4px;
-  font-size: 12px;
-  color: #666;
+  font-size: 11px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
-.result-row {
+.result-grid {
   display: flex;
-  justify-content: space-between;
-  font-size: 13px;
-  margin: 2px 0;
+  gap: 12px;
 }
-.result-row span:first-child { color: #555; }
-.result-row span:last-child { font-weight: 600; color: #1a1a2e; }
+.result-item {
+  display: flex;
+  gap: 4px;
+  align-items: baseline;
+}
+.result-item .label {
+  color: #888;
+  font-size: 12px;
+}
+.result-item .value {
+  font-weight: 600;
+  color: #1a1a2e;
+  font-size: 13px;
+}
+.warn {
+  color: #c62828 !important;
+}
 </style>

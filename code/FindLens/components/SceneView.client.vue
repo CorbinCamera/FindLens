@@ -87,10 +87,10 @@ async function createScene() {
   groundMesh.rotation.x = -Math.PI / 2
   scene.add(groundMesh)
 
-  // Camera model
+  // Camera model — positioned at camera height
   const camGroup = new Group()
   const lensMesh = new Mesh(new BoxGeometry(0.3, 0.25, 0.5), new MeshLambertMaterial({ color: 0x333366 }))
-  lensMesh.position.y = 0.125
+  lensMesh.position.y = store.cameraHeight - 0.125
   camGroup.add(lensMesh)
   scene.add(camGroup)
 
@@ -190,7 +190,7 @@ function refreshScene() {
   const hw = Math.tan(hFOV / 2) * d
   const hh = Math.tan(vFOV / 2) * d
 
-  const camY = 0.85
+  const camY = store.cameraHeight
 
   const vertices = [
     0, camY, 0,  hw, camY + hh, d,
@@ -303,7 +303,8 @@ watch(() => [
   store.distance,
   store.target.height,
   store.target.width,
-  store.target.depth
+  store.target.depth,
+  store.cameraHeight
 ], () => {
   refreshScene()
 }, { deep: true })

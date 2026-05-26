@@ -22,6 +22,8 @@ export const DEFAULT_TARGET: TargetParams = {
   depth: 0.25
 }
 
+export const DEFAULT_CAMERA_HEIGHT = 1.5
+
 export const STANDARD_FOCAL_LENGTHS = [6, 8, 12, 16, 25, 35, 50] as const
 
 export const SENSOR_PRESETS: Array<{

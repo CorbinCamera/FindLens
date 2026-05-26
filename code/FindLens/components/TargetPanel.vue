@@ -11,6 +11,10 @@
       </div>
     </div>
     <div class="field-row">
+      <label>相机高度 (m)</label>
+      <input type="number" v-model.number="store.cameraHeight" min="0.1" max="10" step="0.01" />
+    </div>
+    <div class="field-row">
       <label>身高 (m)</label>
       <input type="number" v-model.number="store.target.height" min="0.1" step="0.01" />
     </div>

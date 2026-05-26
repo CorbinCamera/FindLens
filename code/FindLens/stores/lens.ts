@@ -9,6 +9,7 @@ import {
   computeFocalLengthFromProportion,
   recommendFocalLength,
   DEFAULT_TARGET,
+  DEFAULT_CAMERA_HEIGHT,
   STANDARD_FOCAL_LENGTHS,
   SENSOR_PRESETS,
   DISTANCE_MIN,
@@ -36,6 +37,7 @@ export const useLensStore = defineStore('lens', {
     pixelSize: 1.68,
     focalLength: 12,
     target: { ...DEFAULT_TARGET },
+    cameraHeight: DEFAULT_CAMERA_HEIGHT,
     distance: 5,
     reverseProportion: 0.79,
     standardFocalLengths: [...STANDARD_FOCAL_LENGTHS]
@@ -123,6 +125,7 @@ export const useLensStore = defineStore('lens', {
       params.set('th', this.target.height.toString())
       params.set('tw', this.target.width.toString())
       params.set('td', this.target.depth.toString())
+      params.set('ch', this.cameraHeight.toString())
       params.set('dist', this.distance.toString())
       params.set('mode', this.calculateMode)
       if (this.calculateMode === 'reverse-proportion') {
@@ -155,6 +158,7 @@ export const useLensStore = defineStore('lens', {
         if (params.has('th')) this.target.height = parseNum(params.get('th'), 0.1, 10, this.target.height)
         if (params.has('tw')) this.target.width = parseNum(params.get('tw'), 0.05, 5, this.target.width)
         if (params.has('td')) this.target.depth = parseNum(params.get('td'), 0.05, 5, this.target.depth)
+        if (params.has('ch')) this.cameraHeight = parseNum(params.get('ch'), 0.1, 10, DEFAULT_CAMERA_HEIGHT)
         if (params.has('dist')) this.distance = parseNum(params.get('dist'), DISTANCE_MIN, DISTANCE_MAX, this.distance)
         if (params.has('mode')) {
           const mode = params.get('mode')!

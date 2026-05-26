@@ -112,8 +112,9 @@ function drawPreview() {
   ctx.textAlign = 'left'
   ctx.fillText(`焦距: ${store.focalLength} mm`, 8, 18)
   ctx.fillText(`距离: ${store.distance} m`, 8, 34)
-  ctx.fillText(`H FOV: ${store.fov.horizontalFOV.toFixed(1)}°`, 8, 50)
-  ctx.fillText(`V FOV: ${store.fov.verticalFOV.toFixed(1)}°`, 8, 66)
+  ctx.fillText(`相机高度: ${(store.cameraHeight * 1000).toFixed(0)} mm`, 8, 50)
+  ctx.fillText(`H FOV: ${store.fov.horizontalFOV.toFixed(1)}°`, 8, 66)
+  ctx.fillText(`V FOV: ${store.fov.verticalFOV.toFixed(1)}°`, 8, 82)
 }
 
 function initCanvas() {
