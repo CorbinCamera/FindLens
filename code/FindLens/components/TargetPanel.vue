@@ -15,6 +15,15 @@
       <input type="number" v-model.number="store.cameraHeight" min="0.1" max="10" step="0.01" />
     </div>
     <div class="field-row">
+      <label>俯仰角 (°)</label>
+      <div class="slider-group">
+        <input type="range" :min="-60" :max="60" step="1" :value="store.cameraPitch"
+               @input="store.setCameraPitch(parseFloat(($event.target as HTMLInputElement).value))" />
+        <input type="number" :value="store.cameraPitch" min="-60" max="60" step="1"
+               @input="store.setCameraPitch(parseFloat(($event.target as HTMLInputElement).value))" />
+      </div>
+    </div>
+    <div class="field-row">
       <label>身高 (m)</label>
       <input type="number" v-model.number="store.target.height" min="0.1" step="0.01" />
     </div>
@@ -26,13 +35,21 @@
       <label>厚度 (m)</label>
       <input type="number" v-model.number="store.target.depth" min="0.1" step="0.01" />
     </div>
-    <button class="reset-btn" @click="store.setTargetFromPreset()">重置为默认成年人</button>
+    <button class="reset-btn" @click="resetTarget">重置为默认</button>
   </div>
 </template>
 
 <script setup lang="ts">
 import { useLensStore } from '~/stores/lens'
+import { DEFAULT_TARGET, DEFAULT_CAMERA_HEIGHT, DEFAULT_CAMERA_PITCH } from '~/core/optics'
+
 const store = useLensStore()
+
+function resetTarget() {
+  store.target = { ...DEFAULT_TARGET }
+  store.cameraHeight = DEFAULT_CAMERA_HEIGHT
+  store.cameraPitch = DEFAULT_CAMERA_PITCH
+}
 </script>
 
 <style scoped>

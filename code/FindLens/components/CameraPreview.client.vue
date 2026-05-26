@@ -33,11 +33,15 @@ const widthPercent = computed(() => Math.min(store.proportion.widthProportion * 
 
 const isFullyInView = computed(() => {
   const camH = store.cameraHeight
+  const pitch = store.cameraPitch
   const d = store.distance
   const vFOV = deg2rad(computeVerticalFOV(store.effectiveSensor.height, store.focalLength))
-  const hh = Math.tan(vFOV / 2) * d
-  const viewBottom = camH - hh
-  const viewTop = camH + hh
+  const halfV = Math.tan(vFOV / 2) * d
+
+  const viewCenterY = camH + Math.tan(deg2rad(pitch)) * d
+  const viewTop = viewCenterY + halfV
+  const viewBottom = viewCenterY - halfV
+
   return 0 >= viewBottom && store.target.height <= viewTop
 })
 
@@ -50,101 +54,103 @@ function drawPreview() {
   const w = canvas.width
   const h = canvas.height
   const camH = store.cameraHeight
+  const pitch = store.cameraPitch
   const d = store.distance
   const targetH = store.target.height
   const targetW = store.target.width
   const vFOV = deg2rad(computeVerticalFOV(store.effectiveSensor.height, store.focalLength))
   const hFOV = deg2rad(computeHorizontalFOV(store.effectiveSensor.width, store.focalLength))
-  const hh = Math.tan(vFOV / 2) * d
-  const hw = Math.tan(hFOV / 2) * d
+  const halfV = Math.tan(vFOV / 2) * d
+  const halfH = Math.tan(hFOV / 2) * d
 
-  // The camera view covers vertical range [camH - hh, camH + hh] in real world
-  const viewBottom = camH - hh
-  const viewTop = camH + hh
-  const viewRange = 2 * hh
-
-  // Map real Y to canvas Y:
-  // canvas_y = h * (1 - (realY - viewBottom) / viewRange)
-  // canvas_y = h * (viewTop - realY) / viewRange
+  // With pitch: the center of the view at distance d is at height:
+  // viewCenterY = camH + tan(pitch) * d
+  const pitchRad = deg2rad(pitch)
+  const viewCenterY = camH + Math.tan(pitchRad) * d
+  const viewTop = viewCenterY + halfV
+  const viewBottom = viewCenterY - halfV
+  const viewRange = viewTop - viewBottom
 
   ctx.clearRect(0, 0, w, h)
 
-  // Sky fills entire background first
+  // Map real-world Y to canvas Y
+  function yToCanvas(realY: number): number {
+    return h * (viewTop - realY) / viewRange
+  }
+
+  // Sky fills background
   const skyGrad = ctx.createLinearGradient(0, 0, 0, h)
   skyGrad.addColorStop(0, '#a8d4ff')
   skyGrad.addColorStop(1, '#d4e8ff')
   ctx.fillStyle = skyGrad
   ctx.fillRect(0, 0, w, h)
 
-  // Ground: ground starts at real Y = 0 (ground level)
-  // If ground level is visible, draw ground from its position to canvas bottom
-  if (viewBottom < 0) {
-    // Ground (Y=0) is above the bottom of frame — part of ground is visible
-    const groundY = h * (1 - (0 - viewBottom) / viewRange)
-    const groundGrad = ctx.createLinearGradient(0, groundY, 0, h)
+  // Ground: ground level is at realY = 0
+  const groundCanvasY = yToCanvas(0)
+
+  if (groundCanvasY < h) {
+    // Ground is visible in the frame (at least partially)
+    const groundTop = Math.max(0, groundCanvasY)
+    const groundGrad = ctx.createLinearGradient(0, groundTop, 0, h)
     groundGrad.addColorStop(0, '#c8d8c0')
     groundGrad.addColorStop(1, '#90a880')
     ctx.fillStyle = groundGrad
-    ctx.fillRect(0, groundY, w, h - groundY)
+    ctx.fillRect(0, groundTop, w, h - groundTop)
 
-    // Horizon line
-    ctx.strokeStyle = 'rgba(80,100,60,0.4)'
+    // Ground grid lines (horizontal lines getting closer together = perspective)
+    ctx.strokeStyle = 'rgba(80,100,60,0.25)'
     ctx.lineWidth = 1
-    ctx.beginPath()
-    ctx.moveTo(0, groundY)
-    ctx.lineTo(w, groundY)
-    ctx.stroke()
-
-    // Ground grid lines
-    for (let i = 1; i <= 8; i++) {
-      const realY = -i * 0.3 // lines below ground (further away)
-      const lineCanvasY = h * (1 - (realY + viewBottom - viewBottom) / viewRange)
-      // Actually grid lines going into distance at ground level
+    for (let i = 1; i <= 10; i++) {
+      const realY = -d * i * 0.08
+      const lineY = yToCanvas(realY)
+      if (lineY < h && lineY > groundCanvasY) {
+        ctx.beginPath()
+        ctx.moveTo(0, lineY)
+        ctx.lineTo(w, lineY)
+        ctx.stroke()
+      }
     }
-  } else {
-    // viewBottom >= 0: even the bottom of the frame is above ground
-    // This means camera is pointing at sky/above ground level only
-    // No ground visible
+
+    // Horizon line if visible
+    if (groundCanvasY >= 0 && groundCanvasY <= h) {
+      ctx.strokeStyle = 'rgba(80,100,60,0.5)'
+      ctx.lineWidth = 1.5
+      ctx.beginPath()
+      ctx.moveTo(0, groundCanvasY)
+      ctx.lineTo(w, groundCanvasY)
+      ctx.stroke()
+    }
   }
 
-  // Draw the person at their actual position
-  // Person feet at real Y = 0, head at real Y = targetH
-  // Person horizontal center at center (real X = 0)
-  // Visible width at distance d = 2 * hw
-
-  // Person position in canvas coordinates
-  const feetCanvasY = h * (viewTop - 0) / viewRange
-  const headCanvasY = h * (viewTop - targetH) / viewRange
-  const personCanvasH = feetCanvasY - headCanvasY
-
-  // Person width in canvas: proportion of the frame width
-  const personCanvasW = (targetW / (2 * hw)) * w
+  // Draw person at actual position
+  // Feet at y=0, head at y=targetH
+  const feetY = yToCanvas(0)
+  const headY = yToCanvas(targetH)
+  const personCanvasH = feetY - headY
+  const personCanvasW = (targetW / (2 * halfH)) * w
 
   const personLeft = (w - personCanvasW) / 2
 
-  // Determine visibility
-  const feetVisible = viewBottom <= 0
-  const headVisible = viewTop >= targetH
-
-  // Person color based on whether fully visible
+  // Visibility checks
+  const feetVisible = 0 >= viewBottom
+  const headVisible = targetH <= viewTop
   const fullyVisible = feetVisible && headVisible
-  ctx.fillStyle = fullyVisible ? 'rgba(33, 150, 243, 0.7)' : 'rgba(244, 67, 54, 0.7)'
-  ctx.strokeStyle = fullyVisible ? '#1565C0' : '#C62828'
 
-  // Draw person rectangle (clipped to canvas)
   ctx.save()
   ctx.beginPath()
   ctx.rect(0, 0, w, h)
   ctx.clip()
 
-  ctx.fillRect(personLeft, headCanvasY, personCanvasW, personCanvasH)
+  ctx.fillStyle = fullyVisible ? 'rgba(33, 150, 243, 0.7)' : 'rgba(244, 67, 54, 0.7)'
+  ctx.strokeStyle = fullyVisible ? '#1565C0' : '#C62828'
+  ctx.fillRect(personLeft, headY, personCanvasW, personCanvasH)
   ctx.lineWidth = 2
-  ctx.strokeRect(personLeft, headCanvasY, personCanvasW, personCanvasH)
+  ctx.strokeRect(personLeft, headY, personCanvasW, personCanvasH)
 
-  // Draw a simple person indicator (head circle at top)
+  // Head indicator
   if (personCanvasH > 10 && personCanvasW > 5) {
     const headRadius = Math.min(personCanvasW * 0.2, personCanvasH * 0.06, 8)
-    const headCenterY = headCanvasY + headRadius + 2
+    const headCenterY = headY + headRadius + 2
     const headCenterX = w / 2
     ctx.beginPath()
     ctx.arc(headCenterX, headCenterY, headRadius, 0, Math.PI * 2)
@@ -160,7 +166,7 @@ function drawPreview() {
   ctx.strokeRect(0, 0, w, h)
 
   // Crosshair center
-  ctx.strokeStyle = 'rgba(255,0,0,0.3)'
+  ctx.strokeStyle = 'rgba(255,0,0,0.25)'
   ctx.lineWidth = 1
   ctx.setLineDash([4, 4])
   ctx.beginPath()
@@ -171,17 +177,6 @@ function drawPreview() {
   ctx.stroke()
   ctx.setLineDash([])
 
-  // Draw camera height indicator line (optical axis)
-  const optAxisY = h * (viewTop - camH) / viewRange
-  ctx.strokeStyle = 'rgba(255,165,0,0.4)'
-  ctx.lineWidth = 1
-  ctx.setLineDash([6, 4])
-  ctx.beginPath()
-  ctx.moveTo(0, optAxisY)
-  ctx.lineTo(w, optAxisY)
-  ctx.stroke()
-  ctx.setLineDash([])
-
   // Labels
   ctx.fillStyle = '#333'
   ctx.font = '11px monospace'
@@ -189,37 +184,28 @@ function drawPreview() {
   ctx.fillText(`焦距: ${store.focalLength} mm`, 8, 16)
   ctx.fillText(`距离: ${store.distance} m`, 8, 30)
   ctx.fillText(`相机高: ${(store.cameraHeight * 1000).toFixed(0)} mm`, 8, 44)
-  ctx.fillText(`H FOV: ${store.fov.horizontalFOV.toFixed(1)}°`, 8, 58)
-  ctx.fillText(`V FOV: ${store.fov.verticalFOV.toFixed(1)}°`, 8, 72)
+  ctx.fillText(`俯仰: ${store.cameraPitch.toFixed(0)}°`, 8, 58)
+  ctx.fillText(`H FOV: ${store.fov.horizontalFOV.toFixed(1)}°  V FOV: ${store.fov.verticalFOV.toFixed(1)}°`, 8, 72)
 
-  // Status label
+  // Status labels
+  ctx.font = 'bold 12px sans-serif'
   if (!feetVisible) {
     ctx.fillStyle = '#C62828'
-    ctx.font = 'bold 12px sans-serif'
     ctx.fillText('▼ 人物下半身被裁切', 8, h - 30)
   }
   if (!headVisible) {
     ctx.fillStyle = '#C62828'
-    ctx.font = 'bold 12px sans-serif'
     ctx.fillText('▲ 人物头部被裁切', 8, h - 16)
   }
   if (fullyVisible) {
     ctx.fillStyle = '#2e7d32'
-    ctx.font = 'bold 12px sans-serif'
     ctx.fillText('✓ 人物完整入镜', 8, h - 16)
   }
-
-  // Scale indicator: what the optical axis line means
-  ctx.fillStyle = 'rgba(255,165,0,0.6)'
-  ctx.font = '9px sans-serif'
-  ctx.textAlign = 'right'
-  ctx.fillText('光轴线', w - 6, optAxisY - 3)
 }
 
 function initCanvas() {
   if (!canvasContainer.value) return
 
-  // Wait for layout
   nextTick(() => {
     if (!canvasContainer.value) return
     const rect = canvasContainer.value.getBoundingClientRect()
@@ -242,6 +228,7 @@ watch(() => [
   store.fov.horizontalFOV,
   store.fov.verticalFOV,
   store.cameraHeight,
+  store.cameraPitch,
   store.effectiveSensor.width,
   store.effectiveSensor.height
 ], () => {

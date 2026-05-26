@@ -20,6 +20,7 @@ let frustumMesh: any = null
 let crossSectionHelper: any = null
 let distanceMarkersGroup: any = null
 let personGroup: any = null
+let cameraModelGroup: any = null
 let orbitControls: any = null
 let animFrameId: number = 0
 let THREE: any = null
@@ -41,11 +42,9 @@ async function createScene() {
 
   const container = containerRef.value
 
-  // Ensure container has dimensions before creating renderer
   let width = container.clientWidth
   let height = container.clientHeight
   if (width === 0 || height === 0) {
-    // Fallback: use parent dimensions
     const rect = container.parentElement?.getBoundingClientRect()
     if (rect) {
       width = rect.width
@@ -87,24 +86,25 @@ async function createScene() {
   groundMesh.rotation.x = -Math.PI / 2
   scene.add(groundMesh)
 
-  // Camera model — positioned at camera height
-  const camGroup = new Group()
-  const lensMesh = new Mesh(new BoxGeometry(0.3, 0.25, 0.5), new MeshLambertMaterial({ color: 0x333366 }))
-  lensMesh.position.y = store.cameraHeight - 0.125
-  camGroup.add(lensMesh)
-  scene.add(camGroup)
+  // Camera model group (will be updated dynamically)
+  cameraModelGroup = new Group()
+  const lensBody = new Mesh(new BoxGeometry(0.2, 0.15, 0.4), new MeshLambertMaterial({ color: 0x333366 }))
+  lensBody.position.z = 0.2
+  const lensFront = new Mesh(new CylinderGeometry(0.08, 0.1, 0.15, 8), new MeshLambertMaterial({ color: 0x222255 }))
+  lensFront.rotation.x = Math.PI / 2
+  lensFront.position.z = 0.45
+  cameraModelGroup.add(lensBody)
+  cameraModelGroup.add(lensFront)
+  scene.add(cameraModelGroup)
 
-  // Person
   personGroup = buildPerson()
   scene.add(personGroup)
 
-  // Distance markers group
   distanceMarkersGroup = new Group()
   scene.add(distanceMarkersGroup)
 
   refreshScene()
 
-  // Drag controls
   const dragControls = new DragControls([personGroup], camera, renderer.domElement)
   dragControls.addEventListener('dragstart', () => { orbitControls.enabled = false })
   dragControls.addEventListener('drag', (event: any) => {
@@ -118,10 +118,7 @@ async function createScene() {
   })
   dragControls.addEventListener('dragend', () => { orbitControls.enabled = true })
 
-  // Use ResizeObserver for more reliable container resize detection
-  resizeObserver = new ResizeObserver(() => {
-    onResize()
-  })
+  resizeObserver = new ResizeObserver(() => { onResize() })
   resizeObserver.observe(container)
 
   function animate() {
@@ -169,7 +166,6 @@ function buildPerson(): any {
 function refreshScene() {
   if (!scene || !THREE) return
 
-  // Remove old frustum
   if (frustumMesh) {
     scene.remove(frustumMesh)
     frustumMesh.geometry.dispose()
@@ -184,23 +180,59 @@ function refreshScene() {
   const s = store.effectiveSensor
   const fl = store.focalLength
   const d = store.distance
+  const camH = store.cameraHeight
+  const pitchDeg = store.cameraPitch
+  const pitchRad = deg2rad(pitchDeg)
 
   const hFOV = deg2rad(computeHorizontalFOV(s.width, fl))
   const vFOV = deg2rad(computeVerticalFOV(s.height, fl))
-  const hw = Math.tan(hFOV / 2) * d
-  const hh = Math.tan(vFOV / 2) * d
+  const halfH = Math.tan(hFOV / 2) * d
+  const halfV = Math.tan(vFOV / 2) * d
 
-  const camY = store.cameraHeight
+  // Update camera model position and rotation
+  if (cameraModelGroup) {
+    cameraModelGroup.position.set(0, camH, 0)
+    cameraModelGroup.rotation.x = -pitchRad
+  }
+
+  // Frustum vertices: from camera origin at (0, camH, 0), looking along +Z with pitch
+  // The frustum center direction is (0, sin(pitch), cos(pitch))
+  // At distance d, the center point is (0, camH + d*sin(pitch), d*cos(pitch))
+  // But we draw in a simplified way: the frustum is rotated around the camera point
+
+  // Frustum: camera at (0, camH, 0), center ray goes at pitch angle
+  // We build the frustum by rotating the endpoints
+  const sinP = Math.sin(pitchRad)
+  const cosP = Math.cos(pitchRad)
+
+  // Top and bottom of FOV at distance d (in camera-local coords, before pitch rotation):
+  // Local up direction at the far plane: the vertical extent is halfV
+  // The center of the far plane in world coords:
+  const cx = 0
+  const cy = camH + d * sinP
+  const cz = d * cosP
+
+  // The up direction of the camera (rotated by pitch): (0, cosP, -sinP)
+  // The right direction: (1, 0, 0)
+  // Far plane corners in world coords:
+  // top-center: center + halfV * up = (cx, cy + halfV*cosP, cz - halfV*sinP)
+  // bottom-center: center - halfV * up = (cx, cy - halfV*cosP, cz + halfV*sinP)
+  const topY = cy + halfV * cosP
+  const topZ = cz - halfV * sinP
+  const bottomY = cy - halfV * cosP
+  const bottomZ = cz + halfV * sinP
 
   const vertices = [
-    0, camY, 0,  hw, camY + hh, d,
-    0, camY, 0, -hw, camY + hh, d,
-    0, camY, 0,  hw, camY - hh, d,
-    0, camY, 0, -hw, camY - hh, d,
-    hw,  camY + hh, d, -hw, camY + hh, d,
-    -hw, camY + hh, d, -hw, camY - hh, d,
-    -hw, camY - hh, d,  hw, camY - hh, d,
-    hw,  camY - hh, d,  hw, camY + hh, d,
+    // 4 edges from camera to far plane corners
+    0, camH, 0,   halfH, topY, topZ,
+    0, camH, 0,  -halfH, topY, topZ,
+    0, camH, 0,   halfH, bottomY, bottomZ,
+    0, camH, 0,  -halfH, bottomY, bottomZ,
+    // Top rectangle
+    halfH, topY, topZ,  -halfH, topY, topZ,
+    -halfH, topY, topZ, -halfH, bottomY, bottomZ,
+    -halfH, bottomY, bottomZ, halfH, bottomY, bottomZ,
+    halfH, bottomY, bottomZ, halfH, topY, topZ,
   ]
 
   const geom = new THREE.BufferGeometry()
@@ -209,15 +241,29 @@ function refreshScene() {
   frustumMesh = new THREE.LineSegments(geom, mat)
   scene.add(frustumMesh)
 
-  // Cross section at target distance
+  // Cross section at ground level: show where frustum intersects y=0 plane
+  // The frustum spans from y=camH at z=0 to y-range at z=d* cosP
+  // For the ground cross-section, we compute where the view bounds intersect y=0
+  // Left-right is still halfH at ground level projection
+  // Front-back position depends on where ground level y=0 is in the frame
+
+  // Simple ground indicator at the target distance
+  const groundHalfWidth = halfH
   const csVerts = [
-    -hw, 0.01, d,  hw, 0.01, d,
-    hw, 0.01, d,  hw, 0.01 + 2 * hh, d,
-    hw, 0.01 + 2 * hh, d, -hw, 0.01 + 2 * hh, d,
-    -hw, 0.01 + 2 * hh, d, -hw, 0.01, d,
+    -groundHalfWidth, 0.01, d,  groundHalfWidth, 0.01, d,
+    groundHalfWidth, 0.01, d,  groundHalfWidth, 0.01 + 2 * halfV * cosP, d * cosP + (halfV * sinP > 0 ? 0 : d * (1 - cosP)),
+    groundHalfWidth, 0.01 + 2 * halfV * cosP, d * cosP, -groundHalfWidth, 0.01 + 2 * halfV * cosP, d * cosP,
+    -groundHalfWidth, 0.01 + 2 * halfV * cosP, d * cosP, -groundHalfWidth, 0.01, d,
   ]
+  // Actually, let's keep it simple: just show the coverage at the person's distance on the ground
+  const simpleCsVerts = new Float32Array([
+    -halfH, 0.01, d,  halfH, 0.01, d,
+    halfH, 0.01, d,  halfH, 0.01 + Math.min(halfV * 2, 3), d,
+    halfH, 0.01 + Math.min(halfV * 2, 3), d, -halfH, 0.01 + Math.min(halfV * 2, 3), d,
+    -halfH, 0.01 + Math.min(halfV * 2, 3), d, -halfH, 0.01, d,
+  ])
   const csGeom = new THREE.BufferGeometry()
-  csGeom.setAttribute('position', new THREE.Float32BufferAttribute(csVerts, 3))
+  csGeom.setAttribute('position', new THREE.Float32BufferAttribute(simpleCsVerts, 3))
   const csMat = new THREE.LineBasicMaterial({ color: 0xff9900, transparent: true, opacity: 0.5 })
   crossSectionHelper = new THREE.LineSegments(csGeom, csMat)
   scene.add(crossSectionHelper)
@@ -271,15 +317,12 @@ function onResize() {
 function resetCamera() {
   if (!camera || !orbitControls) return
   camera.position.set(6, 5, 8)
-  orbitControls.target.set(0, 1, 3)
+  orbitControls.target.set(0, store.cameraHeight, 3)
   orbitControls.update()
 }
 
 onMounted(() => {
-  // Use nextTick to ensure DOM is laid out before creating 3D scene
-  nextTick(() => {
-    createScene()
-  })
+  nextTick(() => { createScene() })
 })
 
 onBeforeUnmount(() => {
@@ -304,7 +347,8 @@ watch(() => [
   store.target.height,
   store.target.width,
   store.target.depth,
-  store.cameraHeight
+  store.cameraHeight,
+  store.cameraPitch
 ], () => {
   refreshScene()
 }, { deep: true })

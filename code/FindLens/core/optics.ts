@@ -24,6 +24,11 @@ export const DEFAULT_TARGET: TargetParams = {
 
 export const DEFAULT_CAMERA_HEIGHT = 1.5
 
+export const DEFAULT_CAMERA_PITCH = 0
+
+export const CAMERA_PITCH_MIN = -60
+export const CAMERA_PITCH_MAX = 60
+
 export const STANDARD_FOCAL_LENGTHS = [6, 8, 12, 16, 25, 35, 50] as const
 
 export const SENSOR_PRESETS: Array<{

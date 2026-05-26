@@ -10,6 +10,9 @@ import {
   recommendFocalLength,
   DEFAULT_TARGET,
   DEFAULT_CAMERA_HEIGHT,
+  DEFAULT_CAMERA_PITCH,
+  CAMERA_PITCH_MIN,
+  CAMERA_PITCH_MAX,
   STANDARD_FOCAL_LENGTHS,
   SENSOR_PRESETS,
   DISTANCE_MIN,
@@ -38,6 +41,7 @@ export const useLensStore = defineStore('lens', {
     focalLength: 12,
     target: { ...DEFAULT_TARGET },
     cameraHeight: DEFAULT_CAMERA_HEIGHT,
+    cameraPitch: DEFAULT_CAMERA_PITCH,
     distance: 5,
     reverseProportion: 0.79,
     standardFocalLengths: [...STANDARD_FOCAL_LENGTHS]
@@ -126,6 +130,7 @@ export const useLensStore = defineStore('lens', {
       params.set('tw', this.target.width.toString())
       params.set('td', this.target.depth.toString())
       params.set('ch', this.cameraHeight.toString())
+      params.set('cp', this.cameraPitch.toString())
       params.set('dist', this.distance.toString())
       params.set('mode', this.calculateMode)
       if (this.calculateMode === 'reverse-proportion') {
@@ -159,6 +164,7 @@ export const useLensStore = defineStore('lens', {
         if (params.has('tw')) this.target.width = parseNum(params.get('tw'), 0.05, 5, this.target.width)
         if (params.has('td')) this.target.depth = parseNum(params.get('td'), 0.05, 5, this.target.depth)
         if (params.has('ch')) this.cameraHeight = parseNum(params.get('ch'), 0.1, 10, DEFAULT_CAMERA_HEIGHT)
+        if (params.has('cp')) this.cameraPitch = parseNum(params.get('cp'), CAMERA_PITCH_MIN, CAMERA_PITCH_MAX, DEFAULT_CAMERA_PITCH)
         if (params.has('dist')) this.distance = parseNum(params.get('dist'), DISTANCE_MIN, DISTANCE_MAX, this.distance)
         if (params.has('mode')) {
           const mode = params.get('mode')!
@@ -185,6 +191,10 @@ export const useLensStore = defineStore('lens', {
 
     setFocalLength(fl: number) {
       this.focalLength = Math.max(FOCAL_LENGTH_MIN, Math.min(FOCAL_LENGTH_MAX, fl))
+    },
+
+    setCameraPitch(p: number) {
+      this.cameraPitch = Math.max(CAMERA_PITCH_MIN, Math.min(CAMERA_PITCH_MAX, p))
     },
 
     setTargetFromPreset() {
