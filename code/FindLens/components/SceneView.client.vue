@@ -244,16 +244,18 @@ function refreshScene() {
   frustumMesh = new THREE.LineSegments(geom, mat)
   scene.add(frustumMesh)
 
-  // Simple ground indicator: rectangle at the person's distance showing view height
-  const viewHeightAtD = halfV * 2 * cosP
-  const viewCenterYAtD = camH + d * sinP
-  const csTop = Math.max(0.01, viewCenterYAtD - halfV * cosP)
-  const csBottom = 0.01
+  // Cross-section rectangle: shows the visible vertical range at the person's distance
+  // View center at distance d: camH + d*sin(pitch)
+  // View top: viewCenterY + halfV*cos(pitch)
+  // View bottom: viewCenterY - halfV*cos(pitch)
+  const viewCenterY = camH + d * sinP
+  const csTop = viewCenterY + halfV * cosP
+  const csBottom = viewCenterY - halfV * cosP
   const simpleCsVerts = new Float32Array([
-    -halfH, csBottom, d,  halfH, csBottom, d,
-    halfH, csBottom, d,  halfH, csTop, d,
-    halfH, csTop, d, -halfH, csTop, d,
-    -halfH, csTop, d, -halfH, csBottom, d,
+    -halfH, csTop, d,  halfH, csTop, d,
+    halfH, csTop, d,  halfH, csBottom, d,
+    halfH, csBottom, d, -halfH, csBottom, d,
+    -halfH, csBottom, d, -halfH, csTop, d,
   ])
   const csGeom = new THREE.BufferGeometry()
   csGeom.setAttribute('position', new THREE.Float32BufferAttribute(simpleCsVerts, 3))
