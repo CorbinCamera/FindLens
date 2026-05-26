@@ -29,13 +29,14 @@ let resizeObserver: ResizeObserver | null = null
 async function createScene() {
   if (!containerRef.value) return
 
+  try {
   THREE = await import('three')
   const { OrbitControls } = await import('three/examples/jsm/controls/OrbitControls.js')
   const { DragControls } = await import('three/examples/jsm/controls/DragControls.js')
 
   const {
-    Scene, PerspectiveCamera, WebGLRenderer, BoxGeometry, MeshLambertMaterial,
-    Mesh, LineSegments, LineBasicMaterial, Group,
+    Scene, PerspectiveCamera, WebGLRenderer, BoxGeometry,
+    MeshLambertMaterial, Mesh, LineSegments, LineBasicMaterial, Group,
     BufferGeometry, Float32BufferAttribute, PlaneGeometry, MeshBasicMaterial,
     AmbientLight, DirectionalLight, SphereGeometry, GridHelper, DoubleSide, Color
   } = THREE
@@ -88,11 +89,10 @@ async function createScene() {
 
   // Camera model group (will be updated dynamically)
   cameraModelGroup = new Group()
-  const lensBody = new Mesh(new BoxGeometry(0.2, 0.15, 0.4), new MeshLambertMaterial({ color: 0x333366 }))
-  lensBody.position.z = 0.2
-  const lensFront = new Mesh(new CylinderGeometry(0.08, 0.1, 0.15, 8), new MeshLambertMaterial({ color: 0x222255 }))
-  lensFront.rotation.x = Math.PI / 2
-  lensFront.position.z = 0.45
+  const lensBody = new Mesh(new BoxGeometry(0.2, 0.15, 0.35), new MeshLambertMaterial({ color: 0x333366 }))
+  lensBody.position.z = 0.15
+  const lensFront = new Mesh(new BoxGeometry(0.12, 0.12, 0.1), new MeshLambertMaterial({ color: 0x222255 }))
+  lensFront.position.z = 0.35
   cameraModelGroup.add(lensBody)
   cameraModelGroup.add(lensFront)
   scene.add(cameraModelGroup)
@@ -127,6 +127,9 @@ async function createScene() {
     renderer.render(scene, camera)
   }
   animate()
+  } catch (e) {
+    console.error('[SceneView] createScene error:', e)
+  }
 }
 
 function buildPerson(): any {
@@ -241,26 +244,16 @@ function refreshScene() {
   frustumMesh = new THREE.LineSegments(geom, mat)
   scene.add(frustumMesh)
 
-  // Cross section at ground level: show where frustum intersects y=0 plane
-  // The frustum spans from y=camH at z=0 to y-range at z=d* cosP
-  // For the ground cross-section, we compute where the view bounds intersect y=0
-  // Left-right is still halfH at ground level projection
-  // Front-back position depends on where ground level y=0 is in the frame
-
-  // Simple ground indicator at the target distance
-  const groundHalfWidth = halfH
-  const csVerts = [
-    -groundHalfWidth, 0.01, d,  groundHalfWidth, 0.01, d,
-    groundHalfWidth, 0.01, d,  groundHalfWidth, 0.01 + 2 * halfV * cosP, d * cosP + (halfV * sinP > 0 ? 0 : d * (1 - cosP)),
-    groundHalfWidth, 0.01 + 2 * halfV * cosP, d * cosP, -groundHalfWidth, 0.01 + 2 * halfV * cosP, d * cosP,
-    -groundHalfWidth, 0.01 + 2 * halfV * cosP, d * cosP, -groundHalfWidth, 0.01, d,
-  ]
-  // Actually, let's keep it simple: just show the coverage at the person's distance on the ground
+  // Simple ground indicator: rectangle at the person's distance showing view height
+  const viewHeightAtD = halfV * 2 * cosP
+  const viewCenterYAtD = camH + d * sinP
+  const csTop = Math.max(0.01, viewCenterYAtD - halfV * cosP)
+  const csBottom = 0.01
   const simpleCsVerts = new Float32Array([
-    -halfH, 0.01, d,  halfH, 0.01, d,
-    halfH, 0.01, d,  halfH, 0.01 + Math.min(halfV * 2, 3), d,
-    halfH, 0.01 + Math.min(halfV * 2, 3), d, -halfH, 0.01 + Math.min(halfV * 2, 3), d,
-    -halfH, 0.01 + Math.min(halfV * 2, 3), d, -halfH, 0.01, d,
+    -halfH, csBottom, d,  halfH, csBottom, d,
+    halfH, csBottom, d,  halfH, csTop, d,
+    halfH, csTop, d, -halfH, csTop, d,
+    -halfH, csTop, d, -halfH, csBottom, d,
   ])
   const csGeom = new THREE.BufferGeometry()
   csGeom.setAttribute('position', new THREE.Float32BufferAttribute(simpleCsVerts, 3))
