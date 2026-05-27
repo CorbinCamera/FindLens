@@ -76,7 +76,7 @@ const presetIndex = ref(store.selectedPresetIndex)
   color: #666;
 }
 .field-row select {
-  width: 140px;
+  width: 200px;
   padding: 3px 5px;
   border: 1px solid #d0d0d0;
   border-radius: 4px;

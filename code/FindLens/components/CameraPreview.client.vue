@@ -6,19 +6,6 @@
       <button class="capture-btn" @click="capturePhoto" title="拍摄示意图">拍照</button>
     </div>
     <div ref="canvasContainer" class="preview-canvas"></div>
-    <div class="preview-overlay">
-      <div class="proportion-bar">
-        <div class="proportion-fill" :style="{ height: heightPercent + '%', width: widthPercent + '%' }">
-        </div>
-      </div>
-      <div class="proportion-labels">
-        <span>高度占比: {{ (store.proportion.heightProportion * 100).toFixed(1) }}%</span>
-        <span>宽度占比: {{ (store.proportion.widthProportion * 100).toFixed(1) }}%</span>
-        <span :class="isFullyInView ? 'fit-yes' : 'fit-no'">
-          {{ isFullyInView ? '人物可完整入镜' : '人物超出画面' }}
-        </span>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -29,25 +16,89 @@ import { computeVerticalFOV, computeHorizontalFOV, deg2rad } from '~/core/optics
 const store = useLensStore()
 const canvasContainer = ref<HTMLDivElement | null>(null)
 
-const heightPercent = computed(() => Math.min(store.proportion.heightProportion * 100, 100))
-const widthPercent = computed(() => Math.min(store.proportion.widthProportion * 100, 100))
-
-const isFullyInView = computed(() => {
-  const camH = store.cameraHeight
-  const pitch = store.cameraPitch
-  const d = store.distance
-  const vFOV = deg2rad(computeVerticalFOV(store.effectiveSensor.height, store.focalLength))
-  const halfV = Math.tan(vFOV / 2) * d
-
-  const viewCenterY = camH + Math.tan(deg2rad(pitch)) * d
-  const viewTop = viewCenterY + halfV
-  const viewBottom = viewCenterY - halfV
-
-  return 0 >= viewBottom && store.target.height <= viewTop
-})
-
 let canvas: HTMLCanvasElement | null = null
 let ctx: CanvasRenderingContext2D | null = null
+let resizeObserver: ResizeObserver | null = null
+let personSprite: HTMLCanvasElement | null = null
+let spriteTargetH = 0
+let spriteTargetW = 0
+let spriteRenderer: any = null
+let spriteTHREE: any = null
+
+async function renderPersonSprite(targetH: number, targetW: number): Promise<HTMLCanvasElement> {
+  if (!spriteTHREE) {
+    spriteTHREE = await import('three')
+  }
+  const T = spriteTHREE
+
+  if (!spriteRenderer) {
+    spriteRenderer = new T.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true })
+  }
+
+  const group = new T.Group()
+  const bodyMat = new T.MeshLambertMaterial({ color: 0x2196F3 })
+  const legMat = new T.MeshLambertMaterial({ color: 0x1565C0 })
+  const armMat = new T.MeshLambertMaterial({ color: 0x1976D2 })
+
+  const head = new T.Mesh(new T.SphereGeometry(0.12, 8, 8), bodyMat)
+  head.position.y = 1.58
+  group.add(head)
+
+  const body = new T.Mesh(new T.BoxGeometry(0.35, 0.55, 0.22), bodyMat)
+  body.position.y = 1.15
+  group.add(body)
+
+  const leftLeg = new T.Mesh(new T.BoxGeometry(0.14, 0.75, 0.18), legMat)
+  leftLeg.position.set(-0.1, 0.375, 0)
+  group.add(leftLeg)
+
+  const rightLeg = new T.Mesh(new T.BoxGeometry(0.14, 0.75, 0.18), legMat)
+  rightLeg.position.set(0.1, 0.375, 0)
+  group.add(rightLeg)
+
+  const leftArm = new T.Mesh(new T.BoxGeometry(0.1, 0.5, 0.1), armMat)
+  leftArm.position.set(-0.24, 1.1, 0)
+  group.add(leftArm)
+
+  const rightArm = new T.Mesh(new T.BoxGeometry(0.1, 0.5, 0.1), armMat)
+  rightArm.position.set(0.24, 1.1, 0)
+  group.add(rightArm)
+
+  const scaleY = targetH / 1.70
+  const scaleX = targetW / 0.45
+  group.scale.set(scaleX, scaleY, 1)
+
+  const scene = new T.Scene()
+  scene.add(new T.AmbientLight(0xffffff, 0.7))
+  const dirLight = new T.DirectionalLight(0xffffff, 0.6)
+  dirLight.position.set(2, 5, 5)
+  scene.add(dirLight)
+  scene.add(group)
+
+  const spriteW = 128
+  const spriteH = Math.round(128 * (targetH / Math.max(targetW, 0.1)))
+  const margin = 1.1
+
+  const orthoCam = new T.OrthographicCamera(
+    -margin * (targetW / 2), margin * (targetW / 2),
+    margin * targetH, 0,
+    0.1, 10
+  )
+  orthoCam.position.set(0, 0, 5)
+  orthoCam.lookAt(0, targetH / 2, 0)
+
+  spriteRenderer.setSize(spriteW, spriteH)
+  spriteRenderer.setClearColor(0x000000, 0)
+  spriteRenderer.render(scene, orthoCam)
+
+  const result = document.createElement('canvas')
+  result.width = spriteW
+  result.height = spriteH
+  const rctx = result.getContext('2d')!
+  rctx.drawImage(spriteRenderer.domElement, 0, 0)
+
+  return result
+}
 
 function drawPreview() {
   if (!canvas || !ctx) return
@@ -142,21 +193,16 @@ function drawPreview() {
   ctx.rect(0, 0, w, h)
   ctx.clip()
 
-  ctx.fillStyle = fullyVisible ? 'rgba(33, 150, 243, 0.7)' : 'rgba(244, 67, 54, 0.7)'
-  ctx.strokeStyle = fullyVisible ? '#1565C0' : '#C62828'
-  ctx.fillRect(personLeft, headY, personCanvasW, personCanvasH)
-  ctx.lineWidth = 2
-  ctx.strokeRect(personLeft, headY, personCanvasW, personCanvasH)
+  const cx = w / 2
+  const ph = personCanvasH
+  const pw = personCanvasW
 
-  // Head indicator
-  if (personCanvasH > 10 && personCanvasW > 5) {
-    const headRadius = Math.min(personCanvasW * 0.2, personCanvasH * 0.06, 8)
-    const headCenterY = headY + headRadius + 2
-    const headCenterX = w / 2
-    ctx.beginPath()
-    ctx.arc(headCenterX, headCenterY, headRadius, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.stroke()
+  if (ph > 4 && personSprite) {
+    const drawW = pw * 1.3
+    const drawH = ph * 1.1
+    const drawX = cx - drawW / 2
+    const drawY = headY - drawH * 0.05
+    ctx.drawImage(personSprite, drawX, drawY, drawW, drawH)
   }
 
   ctx.restore()
@@ -290,11 +336,12 @@ async function capturePhoto() {
     const lookY = camH + d * Math.sin(pitchRad)
     renderCamera.lookAt(0, lookY, lookZ)
 
-    const renderer = new T.WebGLRenderer({
+    const renderer = spriteRenderer || new T.WebGLRenderer({
       alpha: true,
       antialias: true,
       preserveDrawingBuffer: true
     })
+    spriteRenderer = renderer
     renderer.setSize(outW, outH)
     renderer.setClearColor(0x000000, 0)
     renderer.render(renderScene, renderCamera)
@@ -338,8 +385,6 @@ async function capturePhoto() {
     }
 
     octx.drawImage(threeCanvas, 0, 0)
-
-    renderer.dispose()
 
     const feetY = yToCanvas(0)
     const headY = yToCanvas(targetH)
@@ -447,17 +492,59 @@ async function capturePhoto() {
 function initCanvas() {
   if (!canvasContainer.value) return
 
-  nextTick(() => {
+  const resizeCanvas = () => {
     if (!canvasContainer.value) return
     const rect = canvasContainer.value.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) return
+
+    const containerW = rect.width - 16
+    const containerH = rect.height - 16
+
+    const s = store.effectiveSensor
+    const sensorAspect = (s.resolutionX && s.resolutionY)
+      ? s.resolutionX / s.resolutionY
+      : 16 / 9
+
+    let canvasW: number
+    let canvasH: number
+    if (containerW / containerH > sensorAspect) {
+      canvasH = containerH
+      canvasW = canvasH * sensorAspect
+    } else {
+      canvasW = containerW
+      canvasH = canvasW / sensorAspect
+    }
+
+    canvasW = Math.max(Math.round(canvasW), 200)
+    canvasH = Math.max(Math.round(canvasH), 112)
+
+    if (canvas && canvas.width === canvasW && canvas.height === canvasH) return
+
+    if (canvas && canvas.parentNode === canvasContainer.value) {
+      canvasContainer.value.removeChild(canvas)
+    }
+
     canvas = document.createElement('canvas')
-    canvas.width = Math.max(rect.width - 16, 200) || 340
-    canvas.height = Math.max(rect.height - 16, 150) || 260
-    canvas.style.width = '100%'
+    canvas.width = canvasW
+    canvas.height = canvasH
+    canvas.style.width = `${canvasW}px`
+    canvas.style.height = `${canvasH}px`
     canvas.style.borderRadius = '4px'
+    canvas.style.background = '#000'
     ctx = canvas.getContext('2d')
     canvasContainer.value.appendChild(canvas)
     drawPreview()
+  }
+
+  nextTick(() => {
+    resizeCanvas()
+
+    if (canvasContainer.value) {
+      resizeObserver = new ResizeObserver(() => {
+        resizeCanvas()
+      })
+      resizeObserver.observe(canvasContainer.value)
+    }
   })
 }
 
@@ -471,16 +558,42 @@ watch(() => [
   store.cameraHeight,
   store.cameraPitch,
   store.effectiveSensor.width,
-  store.effectiveSensor.height
+  store.effectiveSensor.height,
+  store.target.height,
+  store.target.width
 ], () => {
+  if (store.target.height !== spriteTargetH || store.target.width !== spriteTargetW) {
+    spriteTargetH = store.target.height
+    spriteTargetW = store.target.width
+    renderPersonSprite(spriteTargetH, spriteTargetW).then(sprite => {
+      personSprite = sprite
+      drawPreview()
+    })
+  }
   drawPreview()
 }, { deep: true })
 
 onMounted(() => {
   initCanvas()
+  spriteTargetH = store.target.height
+  spriteTargetW = store.target.width
+  renderPersonSprite(spriteTargetH, spriteTargetW).then(sprite => {
+    personSprite = sprite
+    drawPreview()
+  })
 })
 
 onBeforeUnmount(() => {
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+    resizeObserver = null
+  }
+  if (spriteRenderer) {
+    spriteRenderer.dispose()
+    spriteRenderer = null
+  }
+  spriteTHREE = null
+  personSprite = null
   if (canvas && canvasContainer.value && canvas.parentNode === canvasContainer.value) {
     canvasContainer.value.removeChild(canvas)
   }
@@ -537,36 +650,6 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   padding: 8px;
+  min-height: 200px;
 }
-.preview-overlay {
-  padding: 8px 12px;
-  background: #2a2a4e;
-}
-.proportion-bar {
-  width: 100%;
-  height: 80px;
-  background: rgba(255,255,255,0.1);
-  border: 1px solid rgba(255,255,255,0.2);
-  position: relative;
-  border-radius: 4px;
-}
-.proportion-fill {
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(33, 150, 243, 0.5);
-  border: 2px solid rgba(33, 150, 243, 0.8);
-  border-radius: 2px;
-}
-.proportion-labels {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-top: 6px;
-  font-size: 12px;
-  color: #ccc;
-}
-.fit-yes { color: #4CAF50; font-weight: 600; }
-.fit-no { color: #f44336; font-weight: 600; }
 </style>
