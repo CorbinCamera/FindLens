@@ -199,6 +199,14 @@ export const useLensStore = defineStore('lens', {
 
     setTargetFromPreset() {
       this.target = { ...DEFAULT_TARGET }
+    },
+
+    resetAll() {
+      this.target = { ...DEFAULT_TARGET }
+      this.cameraHeight = DEFAULT_CAMERA_HEIGHT
+      this.cameraPitch = DEFAULT_CAMERA_PITCH
+      this.distance = 5
+      this.focalLength = 12
     }
   }
 })
