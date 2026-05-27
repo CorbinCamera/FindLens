@@ -27,13 +27,18 @@
       <label>身高 (m)</label>
       <input type="number" v-model.number="store.target.height" min="0.1" step="0.01" />
     </div>
-    <div class="field-row">
-      <label>宽度 (m)</label>
-      <input type="number" v-model.number="store.target.width" min="0.1" step="0.01" />
-    </div>
-    <div class="field-row">
-      <label>厚度 (m)</label>
-      <input type="number" v-model.number="store.target.depth" min="0.1" step="0.01" />
+    <button class="toggle-btn" @click="showDetail = !showDetail">
+      {{ showDetail ? '收起尺寸' : '更多尺寸' }}
+    </button>
+    <div v-if="showDetail" class="detail-fields">
+      <div class="field-row">
+        <label>宽度 (m)</label>
+        <input type="number" v-model.number="store.target.width" min="0.1" step="0.01" />
+      </div>
+      <div class="field-row">
+        <label>厚度 (m)</label>
+        <input type="number" v-model.number="store.target.depth" min="0.1" step="0.01" />
+      </div>
     </div>
     <button class="reset-btn" @click="resetTarget">重置为默认</button>
   </div>
@@ -44,6 +49,7 @@ import { useLensStore } from '~/stores/lens'
 import { DEFAULT_TARGET, DEFAULT_CAMERA_HEIGHT, DEFAULT_CAMERA_PITCH } from '~/core/optics'
 
 const store = useLensStore()
+const showDetail = ref(false)
 
 function resetTarget() {
   store.target = { ...DEFAULT_TARGET }
@@ -90,6 +96,22 @@ function resetTarget() {
 }
 .slider-group input[type="range"] {
   width: 100px;
+}
+.toggle-btn {
+  margin-top: 6px;
+  padding: 2px 10px;
+  background: none;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #666;
+  cursor: pointer;
+}
+.toggle-btn:hover {
+  background: #f0f0f0;
+}
+.detail-fields {
+  margin-top: 4px;
 }
 .reset-btn {
   margin-top: 8px;

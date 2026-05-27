@@ -44,10 +44,6 @@
             <ResultPanel />
           </div>
         </section>
-
-        <div class="share-area">
-          <SharePanel />
-        </div>
       </aside>
       <main class="panel-center">
         <SceneView />
@@ -163,8 +159,5 @@ function toggle(key: keyof typeof expanded) {
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-}
-.share-area {
-  margin-top: 4px;
 }
 </style>
