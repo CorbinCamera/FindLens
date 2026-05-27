@@ -20,6 +20,7 @@ let frustumMesh: any = null
 let crossSectionHelper: any = null
 let distanceMarkersGroup: any = null
 let personGroup: any = null
+let personDragProxy: any = null
 let cameraModelGroup: any = null
 let orbitControls: any = null
 let animFrameId: number = 0
@@ -100,17 +101,24 @@ async function createScene() {
   personGroup = buildPerson()
   scene.add(personGroup)
 
+  personDragProxy = new Mesh(
+    new BoxGeometry(0.6, 1.8, 0.4),
+    new MeshBasicMaterial({ visible: false })
+  )
+  personDragProxy.position.set(0, 0.9, store.distance)
+  scene.add(personDragProxy)
+
   distanceMarkersGroup = new Group()
   scene.add(distanceMarkersGroup)
 
   refreshScene()
 
-  const dragControls = new DragControls([personGroup], camera, renderer.domElement)
+  const dragControls = new DragControls([personDragProxy], camera, renderer.domElement)
   dragControls.addEventListener('dragstart', () => { orbitControls.enabled = false })
   dragControls.addEventListener('drag', (event: any) => {
     const obj = event.object
     obj.position.x = 0
-    obj.position.y = 0
+    obj.position.y = store.target.height / 2
     const newDist = Math.max(0.5, Math.min(50, obj.position.z))
     obj.position.z = newDist
     store.setDistance(Math.round(newDist * 10) / 10)
@@ -270,6 +278,11 @@ function refreshScene() {
     const scaleZ = store.target.depth / 0.25
     personGroup.scale.set(scaleX, scaleY, scaleZ)
     personGroup.position.set(0, 0, d)
+  }
+
+  if (personDragProxy) {
+    personDragProxy.position.set(0, store.target.height / 2, d)
+    personDragProxy.scale.set(store.target.width / 0.45, store.target.height / 1.70, 1)
   }
 
   // Distance markers
