@@ -49,8 +49,8 @@ describe('computeDiagonalFOV', () => {
   it('computes diagonal FOV correctly', () => {
     const sensor = SENSOR_PRESETS[0]
     const fov = computeDiagonalFOV(sensor.width, sensor.height, 12)
-    expect(fov).toBeGreaterThan(25)
-    expect(fov).toBeLessThan(40)
+    expect(fov).toBeGreaterThan(30)
+    expect(fov).toBeLessThan(45)
   })
 })
 

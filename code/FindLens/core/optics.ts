@@ -40,20 +40,28 @@ export const SENSOR_PRESETS: Array<{
   pixelSize: number
 }> = [
   {
-    name: '1/2.8" IMX307 (1080P)',
-    width: 5.568,
-    height: 3.132,
-    resolutionX: 1920,
-    resolutionY: 1080,
-    pixelSize: 2.9
+    name: '1/2" IMX226',
+    width: 6.4512,
+    height: 5.3088,
+    resolutionX: 3840,
+    resolutionY: 3160,
+    pixelSize: 1.68
   },
   {
-    name: '1/2.8" IMX415 (4K)',
-    width: 5.568,
-    height: 3.132,
-    resolutionX: 3840,
-    resolutionY: 2160,
-    pixelSize: 1.45
+    name: '2/3" IMX264',
+    width: 8.80,
+    height: 6.60,
+    resolutionX: 4400,
+    resolutionY: 3300,
+    pixelSize: 2.0
+  },
+  {
+    name: '1" IMX183',
+    width: 13.1328,
+    height: 8.7552,
+    resolutionX: 5472,
+    resolutionY: 3648,
+    pixelSize: 2.4
   }
 ]
 
